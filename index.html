@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- Title -->
+    <title>BioSim™ | محاكي الاستجابة المناعية المتقدم</title>
+    
+    <!-- Meta Descriptions & SEO -->
+    <meta name="description" content="محاكاة علمية تفاعلية ودقيقة لجهاز المناعة البشري. اكتشف كيف تدافع الخلايا البلعمية والتائية عن الأنسجة ضد الهجمات الفيروسية.">
+    <meta name="keywords" content="محاكي, مناعة, فيروسات, خلايا تائية, أجسام مضادة, بيولوجيا, تعليم طبي">
+    <meta name="author" content="BioSim Technologies">
+
+    <!-- Open Graph / WhatsApp / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://your-domain.com/biosim">
+    <meta property="og:title" content="BioSim™ | محاكي الاستجابة المناعية">
+    <meta property="og:description" content="شاهد معركة حية داخل الجسد! تحكم في الاستجابة المناعية وحماية الأنسجة في هذا المحاكي الطبي التفاعلي.">
+    <!-- صورة احترافية تظهر عند المشاركة (استخدمت صورة مرخصة علمية كمثال) -->
+    <meta property="og:image" content="https://images.unsplash.com/photo-1584036561566-baf8f5f1b144?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80">
+
+    <!-- Favicon (SVG Base64 لضمان العمل دون ملفات خارجية) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+        
+        body { 
+            font-family: 'Tajawal', sans-serif; 
+            background-color: #0b0f19; 
+            color: #f8fafc; 
+            overflow: hidden; 
+            touch-action: none; 
+            margin: 0; 
+        }
+        
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* UI Layers & Animations */
+        .ui-layer { position: relative; z-index: 10; transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* Professional Glass UI */
+        .glass-panel { 
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(9, 14, 23, 0.95) 100%);
+            backdrop-filter: blur(16px); 
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.1); 
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Accessible Custom Sliders */
+        input[type=range] { 
+            -webkit-appearance: none; 
+            width: 100%; 
+            height: 6px; 
+            border-radius: 8px; 
+            background: #1e293b; 
+            outline: none; 
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+        }
+        input[type=range]:focus-visible { outline: 2px solid #38bdf8; outline-offset: 4px; }
+        input[type=range]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            width: 20px; 
+            height: 20px; 
+            background: #e2e8f0; 
+            border-radius: 50%; 
+            cursor: pointer; 
+            border: 2px solid #0ea5e9; 
+            box-shadow: 0 0 12px rgba(14, 165, 233, 0.5); 
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        /* Smooth Hide/Show classes */
+        .hidden-ui { opacity: 0; pointer-events: none; transform: translateY(30px); }
+        .hidden-ui-top { opacity: 0; pointer-events: none; transform: translateY(-30px); }
+        
+        /* Pro Control Buttons */
+        .control-btn { 
+            background: rgba(30, 41, 59, 0.7); 
+            backdrop-filter: blur(8px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            width: 44px; 
+            height: 44px; 
+            border-radius: 12px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            font-size: 18px; 
+            color: #cbd5e1;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .control-btn:hover { background: rgba(51, 65, 85, 0.9); color: #fff; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.4); }
+        .control-btn:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+        
+        /* Fixed Position Overrides */
+        #toggle-ui-btn { position: fixed; top: 24px; right: 24px; z-index: 50; }
+        
+        /* Modal Scrollbar */
+        .modal-scroll::-webkit-scrollbar { width: 6px; }
+        .modal-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 10px; }
+        .modal-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.8); border-radius: 10px; }
+        .modal-scroll::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 1); }
+
+        /* Medical Pulse Animation for Emergency Button */
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .btn-emergency { animation: pulse-red 2s infinite; }
+    </style>
+</head>
+<body>
+
+    <main>
+        <!-- زر إخفاء/إظهار الواجهة -->
+        <button id="toggle-ui-btn" class="control-btn" aria-label="إخفاء أو إظهار واجهة المستخدم" title="إخفاء/إظهار الواجهة">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+
+        <!-- أدوات التحكم العلوية الإضافية -->
+        <nav id="extra-controls" class="ui-layer fixed top-[24px] right-[80px] z-50 flex gap-3 transition-all duration-400">
+            <button id="info-btn" class="control-btn bg-sky-900/40 hover:bg-sky-800/60 border-sky-500/30 text-sky-300" aria-label="دليل المستخدم والمعلومات" title="دليل المحاكي">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            </button>
+            <button id="fullscreen-btn" class="control-btn" aria-label="تكبير الشاشة" title="تكبير الشاشة">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+            <button id="share-btn" class="control-btn" aria-label="مشاركة المحاكي" title="مشاركة المحاكي">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
+        </nav>
+
+        <!-- إشعار النسخ (Toast) -->
+        <div id="toast" role="alert" aria-live="assertive" class="fixed top-24 left-1/2 transform -translate-x-1/2 bg-emerald-600/95 backdrop-blur border border-emerald-400/30 text-white px-6 py-3 rounded-xl z-[200] opacity-0 transition-opacity duration-300 pointer-events-none shadow-2xl shadow-emerald-900/50 font-bold flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            تم نسخ الرابط بنجاح!
+        </div>
+
+        <canvas id="immuneCanvas" aria-hidden="true"></canvas>
+
+        <!-- شاشات عرض البيانات (HUD) -->
+        <section id="top-ui" class="ui-layer fixed top-24 right-0 w-full px-6 pointer-events-none">
+            <div class="max-w-3xl mx-auto flex flex-col gap-4">
+                <!-- العلامة التجارية المصغرة -->
+                <div class="flex items-center gap-2 opacity-80 pl-2">
+                    <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+                    <h1 class="text-xs font-bold tracking-widest text-slate-300 uppercase">BioSim™ Telemetry</h1>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="glass-panel glass-card p-4 rounded-2xl text-center border-t-2 border-t-emerald-500">
+                        <p class="text-[11px] text-emerald-400 font-bold mb-1 uppercase tracking-wider">خلايا سليمة</p>
+                        <p id="healthy-count" class="text-3xl font-black text-white font-mono">0</p>
+                    </div>
+                    <div class="glass-panel glass-card p-4 rounded-2xl text-center border-t-2 border-t-rose-500">
+                        <p class="text-[11px] text-rose-400 font-bold mb-1 uppercase tracking-wider">التهديد الحيوي</p>
+                        <p id="virus-total-count" class="text-3xl font-black text-white font-mono">0</p>
+                    </div>
+                    <div class="glass-panel glass-card p-4 rounded-2xl text-center border-t-2 border-t-sky-500">
+                        <p class="text-[11px] text-sky-400 font-bold mb-1 uppercase tracking-wider">الدفاع المناعي</p>
+                        <p id="immune-total-count" class="text-3xl font-black text-white font-mono">0</p>
+                    </div>
+                </div>
+                
+                <!-- تقرير الحالة الطبية -->
+                <div id="status-card" class="glass-panel p-4 rounded-2xl border-r-4 border-emerald-500 transition-all duration-500 flex items-start gap-3 shadow-lg">
+                    <div class="mt-1" id="status-icon">🛡️</div>
+                    <div>
+                        <h3 class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">تقرير الحالة السريرية</h3>
+                        <p id="status-note" aria-live="polite" class="text-sm leading-relaxed font-medium text-slate-100"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- لوحة التحكم الطبية (Console) -->
+        <section id="bottom-ui" class="ui-layer fixed bottom-0 left-0 w-full glass-panel rounded-t-[32px] p-6 pb-8 border-t border-slate-700">
+            <div class="max-w-3xl mx-auto space-y-6">
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- وحدة تحكم الفيروسات -->
+                    <div class="space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                        <div class="flex justify-between items-center">
+                            <label for="v-slider" class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+                                معدل التعرض الفيروسي
+                            </label>
+                            <span id="v-val" class="text-lg font-mono font-bold text-rose-400 bg-rose-950/50 px-2 rounded">10</span>
+                        </div>
+                        <input type="range" id="v-slider" min="0" max="50" value="5" aria-valuemin="0" aria-valuemax="50">
+                    </div>
+
+                    <!-- وحدة تحكم المناعة -->
+                    <div class="space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                        <div class="flex justify-between items-center">
+                            <label for="i-slider" class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                الاستجابة المناعية القاعدية
+                            </label>
+                            <span id="i-val" class="text-lg font-mono font-bold text-sky-400 bg-sky-950/50 px-2 rounded">15</span>
+                        </div>
+                        <input type="range" id="i-slider" min="5" max="60" value="15" aria-valuemin="5" aria-valuemax="60">
+                    </div>
+                </div>
+
+                <!-- إجراءات الطوارئ -->
+                <div class="grid grid-cols-2 gap-4 pt-2">
+                    <button id="reset-btn" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white py-4 rounded-xl font-bold text-sm active:scale-95 transition-all flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-slate-400 focus:outline-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        إعادة تهيئة الأنسجة
+                    </button>
+                    <button id="boost-btn" class="btn-emergency bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white py-4 rounded-xl font-bold text-sm active:scale-95 transition-all shadow-lg shadow-rose-900/50 flex items-center justify-center gap-2 border border-rose-400/30 focus-visible:ring-2 focus-visible:ring-rose-400 focus:outline-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-1.6-1.6c-1-1-1-2.5 0-3.4L14 4"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg>
+                        التدخل العلاجي (أجسام مضادة)
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- نافذة المعلومات (Modal) -->
+        <div id="info-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" class="fixed inset-0 z-[100] flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(10px);">
+            <div class="glass-panel w-full max-w-3xl max-h-[85vh] overflow-y-auto modal-scroll rounded-3xl p-8 relative border border-slate-700">
+                
+                <button id="close-modal-btn" aria-label="إغلاق النافذة" class="absolute top-6 left-6 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 w-10 h-10 rounded-full flex items-center justify-center transition-colors focus-visible:ring-2 focus-visible:ring-sky-400 focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+                
+                <div class="text-center mb-8">
+                    <h2 id="modal-title" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400 mb-2">BioSim™ دليل المستخدم</h2>
+                    <p class="text-slate-400 text-sm">منصة محاكاة الاستجابة المناعية المتقدمة</p>
+                </div>
+                
+                <div class="space-y-8 text-sm text-slate-200">
+                    <!-- معاني الأشكال -->
+                    <section class="bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 7V2"/><path d="M15 7V2"/><path d="M12 7v5"/><path d="M5 17H2"/><path d="M22 17h-3"/><path d="M12 17H5"/><path d="M12 17h7"/><path d="M7 2h10a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/></svg>
+                            دليل الكائنات الدقيقة (البيانات الحيوية)
+                        </h3>
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div class="flex items-start gap-3"><span class="w-5 h-5 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span> <div><b class="text-white block">الخلايا السليمة (المضيفة)</b> تمثل أنسجة الجسم الطبيعية. الهدف الاستراتيجي هو حمايتها من الاختراق.</div></div>
+                            <div class="flex items-start gap-3"><span class="w-5 h-5 rounded-full bg-rose-500 shrink-0 border-2 border-rose-800"></span> <div><b class="text-white block">الفيروسات الغازية</b> جسيمات دقيقة تبحث عن خلايا مضيفة لاختراقها واستنساخ شفرتها الجينية.</div></div>
+                            <div class="flex items-start gap-3"><span class="w-5 h-5 rounded-full bg-rose-700 animate-pulse shadow-[0_0_15px_#e11d48] shrink-0"></span> <div><b class="text-white block">الخلايا المصابة</b> خلايا تم اختراقها، وهي في طور الحضانة وقريباً ستنفجر لتنشر العدوى.</div></div>
+                            <div class="flex items-start gap-3"><span class="w-5 h-5 rounded-full bg-sky-400 opacity-80 shrink-0" style="border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;"></span> <div><b class="text-white block">الخلايا البلعمية (Macrophages)</b> خط الدفاع الفطري الأول. تقوم بابتلاع الفيروسات الحرة ببطء.</div></div>
+                            <div class="flex items-start gap-3"><span class="w-5 h-5 rounded-full bg-blue-600 shrink-0 shadow-[0_0_10px_#2563eb]"></span> <div><b class="text-white block">الخلايا التائية (Killer T-Cells)</b> المناعة التخصصية. تستهدف وتدمر "الخلايا المصابة" حصراً لمنع التكاثر.</div></div>
+                            <div class="flex items-start gap-3"><span class="text-amber-400 font-bold text-xl shrink-0 leading-none">Y</span> <div><b class="text-white block">الأجسام المضادة (Antibodies)</b> بروتينات تحييد تلتصق بالفيروسات لتجميد حركتها بالكامل وتسهيل التهامها.</div></div>
+                        </div>
+                    </section>
+
+                    <!-- نصائح طبية -->
+                    <section class="bg-gradient-to-br from-sky-900/30 to-indigo-900/30 p-6 rounded-2xl border border-sky-800/40 relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 opacity-10 text-9xl">⚕️</div>
+                        <h3 class="text-lg font-bold text-sky-300 mb-4 relative z-10">استراتيجيات إدارة الأزمة الحيوية</h3>
+                        <ul class="space-y-3 relative z-10">
+                            <li class="flex gap-2">⚠️ <span><b>تجنب صدمة النظام:</b> رفع معدل التهديد الفيروسي فجأة سيؤدي لانهيار الأنسجة قبل أن تتشكل الذاكرة المناعية.</span></li>
+                            <li class="flex gap-2">⏱️ <span><b>عامل الاستجابة المتأخرة:</b> الخلايا التائية القاتلة لا تظهر فوراً. الجهاز المناعي يحتاج إلى وقت للتعرف على العدوى وحشد القوات التخصصية.</span></li>
+                            <li class="flex gap-2">🎯 <span><b>التدخل العلاجي الموجه:</b> احتفظ بخيار "حقن الأجسام المضادة" للحظات انهيار خط الدفاع الأول. استخدامها في الوقت المناسب يمنع عاصفة السيتوكين.</span></li>
+                        </ul>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('immuneCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI Elements
+        const vSlider = document.getElementById('v-slider');
+        const iSlider = document.getElementById('i-slider');
+        const vValText = document.getElementById('v-val');
+        const iValText = document.getElementById('i-val');
+        const btnReset = document.getElementById('reset-btn');
+        const btnBoost = document.getElementById('boost-btn');
+        
+        // Controls
+        const toggleBtn = document.getElementById('toggle-ui-btn');
+        const infoBtn = document.getElementById('info-btn');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const shareBtn = document.getElementById('share-btn');
+        const extraControls = document.getElementById('extra-controls');
+        
+        // Modal
+        const infoModal = document.getElementById('info-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        // Layers
+        const topUI = document.getElementById('top-ui');
+        const bottomUI = document.getElementById('bottom-ui');
+
+        let width, height;
+        let entities = {
+            healthy: [], infected: [], viruses: [], macrophages: [], tcells: [], antibodies: []
+        };
+        
+        let isUIHidden = false;
+        let animationFrame;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        // --- Classes (Physics & Bio Logic exactly as requested) ---
+
+        class HostCell {
+            constructor(x, y) {
+                this.x = x || Math.random() * (width - 40) + 20;
+                this.y = y || Math.random() * (height * 0.7 - 40) + 20;
+                this.radius = 12;
+                this.isInfected = false;
+                this.infectionTimer = 0;
+                this.maxInfectionTime = 300 + Math.random() * 200; 
+                this.wobble = Math.random() * Math.PI * 2;
+                this.dead = false;
+            }
+            infect() {
+                if(!this.isInfected) {
+                    this.isInfected = true;
+                    entities.infected.push(this);
+                    entities.healthy = entities.healthy.filter(c => c !== this);
+                }
+            }
+            update() {
+                if (this.isInfected) {
+                    this.infectionTimer++;
+                    this.wobble += 0.2; 
+                    if (this.infectionTimer >= this.maxInfectionTime) {
+                        this.explode();
+                    }
+                }
+            }
+            explode() {
+                this.dead = true;
+                let spawnCount = Math.floor(Math.random() * 3) + 3; 
+                for(let i=0; i<spawnCount; i++) {
+                    entities.viruses.push(new Virus(this.x, this.y));
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x + (this.isInfected ? Math.sin(this.wobble) * 1.5 : 0), 
+                        this.y + (this.isInfected ? Math.cos(this.wobble) * 1.5 : 0), 
+                        this.radius, 0, Math.PI * 2);
+                
+                if (this.isInfected) {
+                    let progress = this.infectionTimer / this.maxInfectionTime;
+                    ctx.fillStyle = `rgb(${220 + progress*35}, ${40 - progress*40}, ${40 - progress*40})`;
+                    ctx.shadowBlur = 12 * progress;
+                    ctx.shadowColor = '#f43f5e'; // Rose
+                } else {
+                    ctx.fillStyle = '#10b981'; // Emerald
+                    ctx.shadowBlur = 0;
+                }
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fill();
+            }
+        }
+
+        class Virus {
+            constructor(x, y) {
+                this.x = x || (Math.random() > 0.5 ? 0 : width); 
+                this.y = y || Math.random() * height * 0.6;
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = (Math.random() - 0.5) * 3;
+                this.radius = 6;
+                this.rotation = Math.random() * Math.PI;
+                this.frozenTimer = 0;
+                this.dead = false;
+            }
+            update() {
+                if (this.frozenTimer > 0) {
+                    this.frozenTimer--;
+                    this.vx *= 0.9; 
+                    this.vy *= 0.9;
+                } else {
+                    if (Math.random() < 0.05 && entities.healthy.length > 0) {
+                        let target = entities.healthy[Math.floor(Math.random() * entities.healthy.length)];
+                        let angle = Math.atan2(target.y - this.y, target.x - this.x);
+                        this.vx += Math.cos(angle) * 0.2;
+                        this.vy += Math.sin(angle) * 0.2;
+                    }
+                    let speed = Math.hypot(this.vx, this.vy);
+                    if(speed > 2) { this.vx = (this.vx/speed)*2; this.vy = (this.vy/speed)*2; }
+                }
+                this.x += this.vx; this.y += this.vy;
+                this.rotation += (this.frozenTimer > 0) ? 0.01 : 0.05;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            freeze() { this.frozenTimer = 300; }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                let isFrozen = this.frozenTimer > 0;
+                let color = isFrozen ? '#64748b' : '#f43f5e'; // Slate or Rose
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius - 1, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                if(!isFrozen) { ctx.shadowBlur = 8; ctx.shadowColor = '#f43f5e'; }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                for(let i=0; i<6; i++) {
+                    let angle = (i/6) * Math.PI * 2;
+                    let sx = Math.cos(angle) * (this.radius + 3);
+                    let sy = Math.sin(angle) * (this.radius + 3);
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(sx, sy); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI*2); ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        class Macrophage {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = height + 20; 
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = -Math.random() * 1;
+                this.radius = 16;
+                this.wobblePhase = Math.random() * Math.PI * 2;
+                this.target = null;
+                this.dead = false;
+            }
+            update() {
+                this.wobblePhase += 0.1;
+                if (!this.target || this.target.dead) {
+                    let bestDist = Infinity;
+                    this.target = null;
+                    entities.viruses.forEach(v => {
+                        let d = Math.hypot(v.x - this.x, v.y - this.y);
+                        let perceivedDist = v.frozenTimer > 0 ? d * 0.3 : d; 
+                        if (perceivedDist < bestDist && d < 300) { bestDist = perceivedDist; this.target = v; }
+                    });
+                }
+                if (this.target) {
+                    let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                    this.vx += Math.cos(angle) * 0.05; this.vy += Math.sin(angle) * 0.05;
+                }
+                this.vx *= 0.95; this.vy *= 0.95;
+                if(Math.abs(this.vx) < 0.1 && Math.abs(this.vy) < 0.1) {
+                    this.vx += (Math.random()-0.5)*0.5; this.vy += (Math.random()-0.5)*0.5;
+                }
+                this.x += this.vx; this.y += this.vy;
+                if(this.x < 10) this.vx += 0.5; if(this.x > width-10) this.vx -= 0.5;
+                if(this.y < 10) this.vy += 0.5; if(this.y > height-10) this.vy -= 0.5;
+            }
+            draw() {
+                ctx.beginPath();
+                for(let i=0; i<Math.PI*2; i+=0.3) {
+                    let r = this.radius + Math.sin(i * 4 + this.wobblePhase) * 3;
+                    let px = this.x + Math.cos(i) * r;
+                    let py = this.y + Math.sin(i) * r;
+                    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.5)'; // Sky
+                ctx.fill();
+                ctx.strokeStyle = '#0ea5e9'; ctx.lineWidth = 1.5; ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(2, 132, 199, 0.8)'; ctx.fill();
+            }
+        }
+
+        class TCell {
+            constructor() {
+                this.x = Math.random() * width; this.y = height + 20;
+                this.vx = 0; this.vy = -2; this.radius = 8;
+                this.target = null; this.dead = false;
+            }
+            update() {
+                if (!this.target || this.target.dead) {
+                    let bestDist = Infinity; this.target = null;
+                    entities.infected.forEach(c => {
+                        let d = Math.hypot(c.x - this.x, c.y - this.y);
+                        if (d < bestDist && d < 400) { bestDist = d; this.target = c; }
+                    });
+                }
+                if (this.target) {
+                    let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                    this.vx += Math.cos(angle) * 0.15; this.vy += Math.sin(angle) * 0.15;
+                } else {
+                    this.vx += (Math.random()-0.5)*0.2; this.vy += (Math.random()-0.5)*0.2;
+                }
+                let speed = Math.hypot(this.vx, this.vy);
+                if(speed > 3) { this.vx = (this.vx/speed)*3; this.vy = (this.vy/speed)*3; }
+                this.x += this.vx; this.y += this.vy;
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#2563eb'; // Blue
+                ctx.shadowBlur = 15; ctx.shadowColor = '#60a5fa'; ctx.fill(); ctx.shadowBlur = 0;
+            }
+        }
+
+        class Antibody {
+            constructor() {
+                this.x = Math.random() * width; this.y = height;
+                this.vx = (Math.random() - 0.5) * 6; this.vy = -Math.random() * 6 - 2;
+                this.target = null; this.dead = false; this.life = 600; 
+            }
+            update() {
+                this.life--; if(this.life <= 0) this.dead = true;
+                if (!this.target || this.target.dead || this.target.frozenTimer > 0) {
+                    let bestDist = Infinity; this.target = null;
+                    entities.viruses.forEach(v => {
+                        if (v.frozenTimer <= 0) {
+                            let d = Math.hypot(v.x - this.x, v.y - this.y);
+                            if (d < bestDist && d < 300) { bestDist = d; this.target = v; }
+                        }
+                    });
+                }
+                if (this.target) {
+                    let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                    this.vx += Math.cos(angle) * 0.5; this.vy += Math.sin(angle) * 0.5;
+                }
+                let speed = Math.hypot(this.vx, this.vy);
+                if(speed > 5) { this.vx = (this.vx/speed)*5; this.vy = (this.vy/speed)*5; }
+                this.x += this.vx; this.y += this.vy;
+            }
+            draw() {
+                ctx.save(); ctx.translate(this.x, this.y);
+                ctx.rotate(Math.atan2(this.vy, this.vx) + Math.PI/2);
+                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2; ctx.lineCap = 'round'; // Amber
+                ctx.shadowBlur = 6; ctx.shadowColor = '#fbbf24';
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 6); 
+                ctx.moveTo(0, 0); ctx.lineTo(-4, -4); ctx.moveTo(0, 0); ctx.lineTo(4, -4); 
+                ctx.stroke(); ctx.restore();
+            }
+        }
+
+        // --- Core ---
+
+        function init() {
+            resize();
+            entities = { healthy: [], infected: [], viruses: [], macrophages: [], tcells: [], antibodies: [] };
+            for(let i=0; i<45; i++) entities.healthy.push(new HostCell());
+            let baseImmune = parseInt(iSlider.value);
+            for(let i=0; i<baseImmune; i++) entities.macrophages.push(new Macrophage());
+            let initialViruses = parseInt(vSlider.value);
+            for(let i=0; i<initialViruses; i++) entities.viruses.push(new Virus());
+        }
+
+        function handleCollisions() {
+            for (let v of entities.viruses) {
+                if(v.dead || v.frozenTimer > 0) continue; 
+                for (let c of entities.healthy) {
+                    if (Math.hypot(v.x - c.x, v.y - c.y) < c.radius + v.radius) {
+                        c.infect(); v.dead = true; break;
+                    }
+                }
+            }
+            for (let m of entities.macrophages) {
+                for (let v of entities.viruses) {
+                    if (v.dead) continue;
+                    if (Math.hypot(m.x - v.x, m.y - v.y) < m.radius + v.radius) { v.dead = true; }
+                }
+            }
+            for (let t of entities.tcells) {
+                for (let c of entities.infected) {
+                    if (c.dead) continue;
+                    if (Math.hypot(t.x - c.x, t.y - c.y) < t.radius + c.radius) { c.dead = true; }
+                }
+            }
+            for (let a of entities.antibodies) {
+                if(a.dead) continue;
+                for (let v of entities.viruses) {
+                    if (v.dead || v.frozenTimer > 0) continue;
+                    if (Math.hypot(a.x - v.x, a.y - v.y) < v.radius + 5) {
+                        v.freeze(); a.dead = true; break;
+                    }
+                }
+            }
+            entities.infected = entities.infected.filter(c => !c.dead);
+            entities.viruses = entities.viruses.filter(v => !v.dead);
+            entities.antibodies = entities.antibodies.filter(a => !a.dead);
+        }
+
+        function managePopulations() {
+            let vTarget = parseInt(vSlider.value);
+            if (entities.viruses.length < vTarget && Math.random() < 0.05) entities.viruses.push(new Virus());
+            let iTarget = parseInt(iSlider.value);
+            if (entities.macrophages.length < iTarget && Math.random() < 0.1) {
+                entities.macrophages.push(new Macrophage());
+            } else if (entities.macrophages.length > iTarget + 10) {
+                entities.macrophages.pop(); 
+            }
+            if (entities.infected.length > 2 && entities.tcells.length < entities.infected.length * 2) {
+                if (Math.random() < 0.05) entities.tcells.push(new TCell());
+            } else if (entities.infected.length === 0 && entities.tcells.length > 0) {
+                if(Math.random() < 0.02) entities.tcells.pop(); 
+            }
+        }
+
+        function drawBackground() {
+            let grad = ctx.createRadialGradient(width/2, height/2, height*0.1, width/2, height/2, height);
+            grad.addColorStop(0, '#0f172a'); // Slate-900
+            grad.addColorStop(1, '#020617'); // Slate-950
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.02)'; // Tech faint lines
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let i=0; i<width; i+=40) { ctx.moveTo(i, 0); ctx.lineTo(i, height); }
+            for(let i=0; i<height; i+=40) { ctx.moveTo(0, i); ctx.lineTo(width, i); }
+            ctx.stroke();
+        }
+
+        function updateUI() {
+            if(isUIHidden) return;
+
+            let hCount = entities.healthy.length;
+            let infCount = entities.infected.length;
+            let vCount = entities.viruses.length;
+            let mCount = entities.macrophages.length;
+            let tCount = entities.tcells.length;
+
+            document.getElementById('healthy-count').innerText = hCount;
+            document.getElementById('virus-total-count').innerText = vCount + infCount;
+            document.getElementById('immune-total-count').innerText = mCount + tCount;
+            
+            vValText.innerText = vSlider.value;
+            iValText.innerText = iSlider.value;
+
+            const statusCard = document.getElementById('status-card');
+            const statusNote = document.getElementById('status-note');
+            const statusIcon = document.getElementById('status-icon');
+
+            // Prevent constant DOM updates if text is the same (better performance and for screen readers)
+            let newText, newColor, newIcon;
+
+            if (hCount === 0) {
+                newText = "فشل النظام الحيوي: تم تدمير جميع الخلايا المضيفة. الاستجابة المناعية غير كافية.";
+                newColor = "#e11d48"; newIcon = "⚠️"; // Rose-600
+            } else if (infCount > 10 || vCount > 30) {
+                newText = "حالة طوارئ (عاصفة وشيكة): انتشار سريع للعدوى. الخلايا التائية القاتلة تتدخل الآن لتدمير الخلايا المصابة.";
+                newColor = "#ea580c"; newIcon = "🔥"; // Orange-600
+            } else if (vCount > 0 || infCount > 0) {
+                newText = "اشتباك نشط: الخلايا البلعمية تهاجم الفيروسات. يمكن التدخل بتوجيه الأجسام المضادة عند الحاجة.";
+                newColor = "#eab308"; newIcon = "⚔️"; // Yellow-500
+            } else {
+                newText = "البيانات الحيوية مستقرة: الأنسجة سليمة ولا يوجد أي تهديد فيروسي حالي.";
+                newColor = "#10b981"; newIcon = "✅"; // Emerald-500
+            }
+
+            if(statusNote.innerText !== newText) {
+                statusNote.innerText = newText;
+                statusCard.style.borderColor = newColor;
+                statusIcon.innerText = newIcon;
+            }
+        }
+
+        function loop() {
+            drawBackground();
+            ['healthy', 'infected', 'antibodies', 'viruses', 'macrophages', 'tcells'].forEach(group => {
+                entities[group].forEach(e => {
+                    if(e.update) e.update();
+                    if(e.draw) e.draw();
+                });
+            });
+            handleCollisions();
+            managePopulations();
+            updateUI();
+            animationFrame = requestAnimationFrame(loop);
+        }
+
+        // --- Events & Accessibility ---
+
+        btnReset.onclick = init;
+        
+        btnBoost.onclick = () => {
+            for(let i=0; i<40; i++) entities.antibodies.push(new Antibody());
+        };
+
+        toggleBtn.onclick = () => {
+            isUIHidden = !isUIHidden;
+            if(isUIHidden) {
+                topUI.classList.add('hidden-ui-top');
+                extraControls.classList.add('hidden-ui-top');
+                bottomUI.classList.add('hidden-ui');
+                toggleBtn.setAttribute('aria-label', 'إظهار واجهة المستخدم');
+                toggleBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
+                toggleBtn.style.opacity = '0.5';
+            } else {
+                topUI.classList.remove('hidden-ui-top');
+                extraControls.classList.remove('hidden-ui-top');
+                bottomUI.classList.remove('hidden-ui');
+                toggleBtn.setAttribute('aria-label', 'إخفاء واجهة المستخدم');
+                toggleBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+                toggleBtn.style.opacity = '1';
+                updateUI(); 
+            }
+        };
+
+        // Modal Logic (Accessible focus trapping)
+        infoBtn.onclick = () => {
+            infoModal.classList.remove('hidden');
+            setTimeout(() => {
+                infoModal.style.opacity = '1';
+                closeModalBtn.focus(); // Set focus to close button for screen readers
+            }, 10);
+        };
+        closeModalBtn.onclick = () => {
+            infoModal.style.opacity = '0';
+            setTimeout(() => {
+                infoModal.classList.add('hidden');
+                infoBtn.focus(); // Return focus
+            }, 300);
+        };
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+                closeModalBtn.click();
+            }
+        });
+
+        // Fullscreen
+        fullscreenBtn.onclick = () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        };
+
+        // Share & Toast
+        function showCopyToast() {
+            const toast = document.getElementById('toast');
+            toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 3000);
+        }
+
+        shareBtn.onclick = () => {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'BioSim™ | محاكي الاستجابة المناعية',
+                    text: 'اكتشف كيف يدافع جسمك عن نفسه. محاكاة تفاعلية دقيقة للجهاز المناعي البشري!',
+                    url: window.location.href,
+                }).catch(console.error);
+            } else {
+                const dummy = document.createElement('textarea');
+                document.body.appendChild(dummy);
+                dummy.value = window.location.href;
+                dummy.select();
+                document.execCommand('copy');
+                document.body.removeChild(dummy);
+                showCopyToast();
+            }
+        };
+
+        window.onresize = resize;
+        init();
+        loop();
+
+    </script>
+</body>
+</html>

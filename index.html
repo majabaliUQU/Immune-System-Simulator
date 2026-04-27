@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>محاكي الاستجابة المناعية - الإصدار المتقدم</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background-color: #1a0f14; color: #f8fafc; overflow: hidden; touch-action: none; margin: 0; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        .ui-layer { position: relative; z-index: 10; transition: opacity 0.4s ease, transform 0.4s ease; }
+        .glass-ui { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 10px; background: rgba(255,255,255,0.1); outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: #fff; border-radius: 50%; cursor: pointer; border: 3px solid #1e293b; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        
+        .hidden-ui { opacity: 0; pointer-events: none; transform: translateY(20px); }
+        .hidden-ui-top { opacity: 0; pointer-events: none; transform: translateY(-20px); }
+        
+        /* أزرار التحكم العلوية */
+        .control-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2); width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s; font-size: 20px; }
+        .control-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+        
+        #toggle-ui-btn { position: fixed; top: 20px; right: 20px; z-index: 50; } /* غيرت مكانه لليمين ليناسب العربية */
+        
+        /* تنسيق النافذة المنبثقة (Modal) */
+        .modal-scroll::-webkit-scrollbar { width: 8px; }
+        .modal-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .modal-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- زر إخفاء/إظهار الواجهة (دائماً ظاهر) -->
+    <button id="toggle-ui-btn" class="control-btn" title="إخفاء/إظهار لوحة التحكم">👁️</button>
+
+    <!-- أزرار التحكم الإضافية -->
+    <div id="extra-controls" class="ui-layer fixed top-[20px] right-[75px] z-50 flex gap-2 transition-all duration-400">
+        <button id="info-btn" class="control-btn bg-blue-600/50 hover:bg-blue-500/70" title="معلومات ودليل المحاكي">ℹ️</button>
+        <button id="fullscreen-btn" class="control-btn" title="تكبير الشاشة">⛶</button>
+        <button id="share-btn" class="control-btn" title="مشاركة">🔗</button>
+    </div>
+
+    <!-- إشعار النسخ -->
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-green-500/90 backdrop-blur text-white px-6 py-3 rounded-full z-[200] opacity-0 transition-opacity duration-300 pointer-events-none shadow-lg font-bold">
+        تم نسخ الرابط بنجاح!
+    </div>
+
+    <canvas id="immuneCanvas"></canvas>
+
+    <!-- الإحصائيات العلوية -->
+    <div id="top-ui" class="ui-layer fixed top-20 right-0 w-full px-6 pointer-events-none">
+        <div class="max-w-2xl mx-auto grid grid-cols-3 gap-3">
+            <div class="glass-ui p-3 rounded-2xl text-center">
+                <p class="text-[10px] text-green-400 font-bold mb-1">خلايا سليمة</p>
+                <p id="healthy-count" class="text-2xl font-black">0</p>
+            </div>
+            <div class="glass-ui p-3 rounded-2xl text-center border-b-2 border-red-500">
+                <p class="text-[10px] text-red-400 font-bold mb-1">فيروسات ومصابة</p>
+                <p id="virus-total-count" class="text-2xl font-black">0</p>
+            </div>
+            <div class="glass-ui p-3 rounded-2xl text-center border-b-2 border-blue-500">
+                <p class="text-[10px] text-blue-400 font-bold mb-1">قوات المناعة</p>
+                <p id="immune-total-count" class="text-2xl font-black">0</p>
+            </div>
+        </div>
+        
+        <div id="status-card" class="max-w-2xl mx-auto mt-3 glass-ui p-3 rounded-2xl border-r-4 border-green-500 transition-all duration-500">
+            <p id="status-note" class="text-xs leading-relaxed font-medium text-slate-200"></p>
+        </div>
+    </div>
+
+    <!-- لوحة التحكم السفلية -->
+    <div id="bottom-ui" class="ui-layer fixed bottom-0 left-0 w-full glass-ui rounded-t-[30px] p-6 pb-8">
+        <div class="max-w-2xl mx-auto space-y-5">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-300">معدل التعرض (فيروسات)</span>
+                        <span id="v-val" class="text-sm font-bold text-red-400">10</span>
+                    </div>
+                    <input type="range" id="v-slider" min="0" max="50" value="5">
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-300">الاستجابة المناعية الأساسية</span>
+                        <span id="i-val" class="text-sm font-bold text-blue-400">15</span>
+                    </div>
+                    <input type="range" id="i-slider" min="5" max="60" value="15">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button id="reset-btn" class="bg-slate-800/80 hover:bg-slate-700 border border-slate-600 py-3 rounded-xl font-bold text-sm active:scale-95 transition-all">إعادة بناء الأنسجة 🔄</button>
+                <button id="boost-btn" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-bold text-sm active:scale-95 transition-all shadow-lg shadow-blue-500/30">حقن أجسام مضادة 💉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة المعلومات (Modal) -->
+    <div id="info-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);">
+        <div class="glass-ui w-full max-w-2xl max-h-[85vh] overflow-y-auto modal-scroll rounded-3xl p-6 md:p-8 relative">
+            
+            <button id="close-modal-btn" class="absolute top-4 left-4 text-slate-400 hover:text-white text-3xl font-bold cursor-pointer bg-slate-800/50 w-10 h-10 rounded-full flex items-center justify-center">&times;</button>
+            
+            <h2 class="text-2xl font-black text-center text-blue-400 mb-6">🧬 دليل محاكي الاستجابة المناعية</h2>
+            
+            <div class="space-y-6 text-sm text-slate-200">
+                <!-- معاني الأشكال -->
+                <section>
+                    <h3 class="text-lg font-bold text-white border-b border-slate-700 pb-2 mb-3">🧩 معاني الأشكال (الكائنات الدقيقة)</h3>
+                    <ul class="space-y-3">
+                        <li class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-green-500 inline-block shadow-[0_0_8px_#22c55e]"></span> <b>الخلايا السليمة:</b> أنسجة الجسم الطبيعية (مثل خلايا الرئة). يجب حمايتها.</li>
+                        <li class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-red-500 inline-block"></span> <b>الفيروسات (دوائر ذات نتوءات):</b> الأجسام الغازية التي تبحث عن خلايا لاختراقها والتكاثر بداخلها.</li>
+                        <li class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-red-700 animate-pulse shadow-[0_0_10px_#ef4444] inline-block"></span> <b>الخلايا المصابة:</b> خلايا اخترقها الفيروس. تهتز وستنفجر قريباً لتُخرج فيروسات جديدة.</li>
+                        <li class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-blue-400 opacity-70 inline-block" style="border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;"></span> <b>الخلايا البلعمية (المناعة الفطرية):</b> خط الدفاع الأول، شكلها غير منتظم (أميبا) وتبتلع الفيروسات الحرة.</li>
+                        <li class="flex items-center gap-3"><span class="w-4 h-4 rounded-full bg-blue-700 inline-block shadow-[0_0_10px_#60a5fa]"></span> <b>الخلايا التائية القاتلة:</b> قوات خاصة سريعة، لا تظهر إلا عند وجود خلايا مصابة لتقوم بتدميرها.</li>
+                        <li class="flex items-center gap-3"><span class="text-yellow-400 font-bold text-lg">Y</span> <b>الأجسام المضادة:</b> بروتينات سريعة تلتصق بالفيروسات لتجميد حركتها بالكامل وتسهيل ابتلاعها.</li>
+                    </ul>
+                </section>
+
+                <!-- شرح الإعدادات -->
+                <section>
+                    <h3 class="text-lg font-bold text-white border-b border-slate-700 pb-2 mb-3">⚙️ شرح لوحة التحكم والإعدادات</h3>
+                    <ul class="space-y-2 list-disc list-inside">
+                        <li><b>معدل التعرض (فيروسات):</b> يتحكم في كثافة الهجوم الفيروسي المستمر على الجسم.</li>
+                        <li><b>الاستجابة المناعية الأساسية:</b> يحدد عدد الخلايا البلعمية المتوفرة بشكل افتراضي في الأنسجة لحمايتها.</li>
+                        <li><b>إعادة بناء الأنسجة 🔄:</b> يعيد تعيين المحاكاة بالكامل؛ يمسح الفيروسات ويبني خلايا سليمة جديدة (كانك بدأت من جديد).</li>
+                        <li><b>حقن أجسام مضادة 💉:</b> محاكاة لتدخل طبي (دواء/لقاح)، يطلق دفعة مكثفة من الأجسام المضادة لإنقاذ الموقف.</li>
+                    </ul>
+                </section>
+
+                <!-- نصائح للمستخدم -->
+                <section class="bg-blue-900/20 p-4 rounded-2xl border border-blue-800/50">
+                    <h3 class="text-lg font-bold text-blue-300 mb-2">💡 نصائح طبية للمحافظة على الجسد الافتراضي</h3>
+                    <ul class="space-y-2">
+                        <li>⚠️ <b>تجنب العاصفة:</b> لا تقم برفع "معدل التعرض" إلى أقصى حد فجأة، التكاثر السريع للفيروسات سيُدمر الأنسجة قبل أن تستيقظ المناعة المكتسبة (الخلايا التائية).</li>
+                        <li>⏱️ <b>الوقت الحاسم:</b> الخلايا التائية (الزرقاء الداكنة) تمثل "الذاكرة المناعية"، فهي تحتاج لبعض الوقت لتظهر بعد بدء العدوى، امنحها الوقت لتقوم بعملها.</li>
+                        <li>🎯 <b>التدخل الاستراتيجي:</b> احتفظ بزر "حقن أجسام مضادة" للحظات الحرجة؛ عندما تجد أن الخلايا البلعمية بطيئة ولم تعد قادرة على ملاحقة الفيروسات. الأجسام المضادة ستجمدها فوراً!</li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('immuneCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI Elements
+        const vSlider = document.getElementById('v-slider');
+        const iSlider = document.getElementById('i-slider');
+        const vValText = document.getElementById('v-val');
+        const iValText = document.getElementById('i-val');
+        const btnReset = document.getElementById('reset-btn');
+        const btnBoost = document.getElementById('boost-btn');
+        
+        // New Controls
+        const toggleBtn = document.getElementById('toggle-ui-btn');
+        const infoBtn = document.getElementById('info-btn');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const shareBtn = document.getElementById('share-btn');
+        const extraControls = document.getElementById('extra-controls');
+        
+        // Modal Elements
+        const infoModal = document.getElementById('info-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        // Layers
+        const topUI = document.getElementById('top-ui');
+        const bottomUI = document.getElementById('bottom-ui');
+
+        let width, height;
+        let entities = {
+            healthy: [],
+            infected: [],
+            viruses: [],
+            macrophages: [],
+            tcells: [],
+            antibodies: []
+        };
+        
+        let isUIHidden = false;
+        let animationFrame;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        // --- Classes ---
+
+        class HostCell {
+            constructor(x, y) {
+                this.x = x || Math.random() * (width - 40) + 20;
+                this.y = y || Math.random() * (height * 0.7 - 40) + 20;
+                this.radius = 12;
+                this.isInfected = false;
+                this.infectionTimer = 0;
+                this.maxInfectionTime = 300 + Math.random() * 200; 
+                this.wobble = Math.random() * Math.PI * 2;
+                this.dead = false;
+            }
+            infect() {
+                if(!this.isInfected) {
+                    this.isInfected = true;
+                    entities.infected.push(this);
+                    entities.healthy = entities.healthy.filter(c => c !== this);
+                }
+            }
+            update() {
+                if (this.isInfected) {
+                    this.infectionTimer++;
+                    this.wobble += 0.2; 
+                    if (this.infectionTimer >= this.maxInfectionTime) {
+                        this.explode();
+                    }
+                }
+            }
+            explode() {
+                this.dead = true;
+                let spawnCount = Math.floor(Math.random() * 3) + 3; 
+                for(let i=0; i<spawnCount; i++) {
+                    entities.viruses.push(new Virus(this.x, this.y));
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x + (this.isInfected ? Math.sin(this.wobble) * 1.5 : 0), 
+                        this.y + (this.isInfected ? Math.cos(this.wobble) * 1.5 : 0), 
+                        this.radius, 0, Math.PI * 2);
+                
+                if (this.isInfected) {
+                    let progress = this.infectionTimer / this.maxInfectionTime;
+                    ctx.fillStyle = `rgb(${200 + progress*55}, ${50 - progress*50}, ${50 - progress*50})`;
+                    ctx.shadowBlur = 10 * progress;
+                    ctx.shadowColor = '#ef4444';
+                } else {
+                    ctx.fillStyle = '#22c55e';
+                    ctx.shadowBlur = 0;
+                }
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fill();
+            }
+        }
+
+        class Virus {
+            constructor(x, y) {
+                this.x = x || (Math.random() > 0.5 ? 0 : width); 
+                this.y = y || Math.random() * height * 0.6;
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = (Math.random() - 0.5) * 3;
+                this.radius = 6;
+                this.rotation = Math.random() * Math.PI;
+                this.frozenTimer = 0;
+                this.dead = false;
+            }
+            update() {
+                if (this.frozenTimer > 0) {
+                    this.frozenTimer--;
+                    this.vx *= 0.9; 
+                    this.vy *= 0.9;
+                } else {
+                    if (Math.random() < 0.05 && entities.healthy.length > 0) {
+                        let target = entities.healthy[Math.floor(Math.random() * entities.healthy.length)];
+                        let angle = Math.atan2(target.y - this.y, target.x - this.x);
+                        this.vx += Math.cos(angle) * 0.2;
+                        this.vy += Math.sin(angle) * 0.2;
+                    }
+                    
+                    let speed = Math.hypot(this.vx, this.vy);
+                    if(speed > 2) { this.vx = (this.vx/speed)*2; this.vy = (this.vy/speed)*2; }
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.rotation += (this.frozenTimer > 0) ? 0.01 : 0.05;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            freeze() {
+                this.frozenTimer = 300;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                let isFrozen = this.frozenTimer > 0;
+                let color = isFrozen ? '#94a3b8' : '#ef4444'; 
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius - 1, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                if(!isFrozen) {
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#ef4444';
+                }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                for(let i=0; i<6; i++) {
+                    let angle = (i/6) * Math.PI * 2;
+                    let sx = Math.cos(angle) * (this.radius + 3);
+                    let sy = Math.sin(angle) * (this.radius + 3);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(sx, sy);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 1.5, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        class Macrophage {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = height + 20; 
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = -Math.random() * 1;
+                this.radius = 16;
+                this.wobblePhase = Math.random() * Math.PI * 2;
+                this.target = null;
+                this.dead = false;
+            }
+            update() {
+                this.wobblePhase += 0.1;
+                
+                if (!this.target || this.target.dead) {
+                    let bestDist = Infinity;
+                    this.target = null;
+                    entities.viruses.forEach(v => {
+                        let d = Math.hypot(v.x - this.x, v.y - this.y);
+                        let perceivedDist = v.frozenTimer > 0 ? d * 0.3 : d; 
+                        if (perceivedDist < bestDist && d < 300) {
+                            bestDist = perceivedDist;
+                            this.target = v;
+                        }
+                    });
+                }
+
+                if (this.target) {
+                    let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                    this.vx += Math.cos(angle) * 0.05;
+                    this.vy += Math.sin(angle) * 0.05;
+                }
+
+                this.vx *= 0.95; this.vy *= 0.95;
+                if(Math.abs(this.vx) < 0.1 && Math.abs(this.vy) < 0.1) {
+                    this.vx += (Math.random()-0.5)*0.5; this.vy += (Math.random()-0.5)*0.5;
+                }
+
+                this.x += this.vx; this.y += this.vy;
+                
+                if(this.x < 10) this.vx += 0.5; if(this.x > width-10) this.vx -= 0.5;
+                if(this.y < 10) this.vy += 0.5; if(this.y > height-10) this.vy -= 0.5;
+            }
+            draw() {
+                ctx.beginPath();
+                for(let i=0; i<Math.PI*2; i+=0.3) {
+                    let r = this.radius + Math.sin(i * 4 + this.wobblePhase) * 3;
+                    let px = this.x + Math.cos(i) * r;
+                    let py = this.y + Math.sin(i) * r;
+                    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(147, 197, 253, 0.6)'; 
+                ctx.fill();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+                ctx.fill();
+            }
+        }
+
+        class TCell {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = height + 20;
+                this.vx = 0; this.vy = -2;
+                this.radius = 8;
+                this.target = null;
+                this.dead = false;
+            }
+            update() {
+                if (!this.target || this.target.dead) {
+                    let bestDist = Infinity;
+                    this.target = null;
+                    entities.infected.forEach(c => {
+                        let d = Math.hypot(c.x - this.x, c.y - this.y);
+                        if (d < bestDist && d < 400) {
+                            bestDist = d;
+                            this.target = c;
+                        }
+                    });
+                }
+
+                if (this.target) {
+                    let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                    this.vx += Math.cos(angle) * 0.15;
+                    this.vy += Math.sin(angle) * 0.15;
+                } else {
+                    this.vx += (Math.random()-0.5)*0.2;
+                    this.vy += (Math.random()-0.5)*0.2;
+                }
+
+                let speed = Math.hypot(this.vx, this.vy);
+                if(speed > 3) { this.vx = (this.vx/speed)*3; this.vy = (this.vy/speed)*3; }
+
+                this.x += this.vx; this.y += this.vy;
+                
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#1d4ed8'; 
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#60a5fa';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        class Antibody {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = height;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = -Math.random() * 6 - 2;
+                this.target = null;
+                this.dead = false;
+                this.life = 600; 
+            }
+            update() {
+                this.life--;
+                if(this.life <= 0) this.dead = true;
+
+                if (!this.target || this.target.dead || this.target.frozenTimer > 0) {
+                    let bestDist = Infinity;
+                    this.target = null;
+                    entities.viruses.forEach(v => {
+                        if (v.frozenTimer <= 0) {
+                            let d = Math.hypot(v.x - this.x, v.y - this.y);
+                            if (d < bestDist && d < 300) {
+                                bestDist = d;
+                                this.target = v;
+                            }
+                        }
+                    });
+                }
+
+                if (this.target) {
+                    let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                    this.vx += Math.cos(angle) * 0.5;
+                    this.vy += Math.sin(angle) * 0.5;
+                }
+
+                let speed = Math.hypot(this.vx, this.vy);
+                if(speed > 5) { this.vx = (this.vx/speed)*5; this.vy = (this.vy/speed)*5; }
+
+                this.x += this.vx; this.y += this.vy;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(Math.atan2(this.vy, this.vx) + Math.PI/2);
+                
+                ctx.strokeStyle = '#fcd34d'; 
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = '#fcd34d';
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0); ctx.lineTo(0, 6); 
+                ctx.moveTo(0, 0); ctx.lineTo(-4, -4); 
+                ctx.moveTo(0, 0); ctx.lineTo(4, -4); 
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+
+        // --- Core Functions ---
+
+        function init() {
+            resize();
+            entities = { healthy: [], infected: [], viruses: [], macrophages: [], tcells: [], antibodies: [] };
+            
+            for(let i=0; i<45; i++) entities.healthy.push(new HostCell());
+            
+            let baseImmune = parseInt(iSlider.value);
+            for(let i=0; i<baseImmune; i++) entities.macrophages.push(new Macrophage());
+            
+            let initialViruses = parseInt(vSlider.value);
+            for(let i=0; i<initialViruses; i++) entities.viruses.push(new Virus());
+        }
+
+        function handleCollisions() {
+            for (let v of entities.viruses) {
+                if(v.dead || v.frozenTimer > 0) continue; 
+                for (let c of entities.healthy) {
+                    if (Math.hypot(v.x - c.x, v.y - c.y) < c.radius + v.radius) {
+                        c.infect();
+                        v.dead = true; 
+                        break;
+                    }
+                }
+            }
+
+            for (let m of entities.macrophages) {
+                for (let v of entities.viruses) {
+                    if (v.dead) continue;
+                    if (Math.hypot(m.x - v.x, m.y - v.y) < m.radius + v.radius) {
+                        v.dead = true;
+                    }
+                }
+            }
+
+            for (let t of entities.tcells) {
+                for (let c of entities.infected) {
+                    if (c.dead) continue;
+                    if (Math.hypot(t.x - c.x, t.y - c.y) < t.radius + c.radius) {
+                        c.dead = true; 
+                    }
+                }
+            }
+
+            for (let a of entities.antibodies) {
+                if(a.dead) continue;
+                for (let v of entities.viruses) {
+                    if (v.dead || v.frozenTimer > 0) continue;
+                    if (Math.hypot(a.x - v.x, a.y - v.y) < v.radius + 5) {
+                        v.freeze();
+                        a.dead = true; 
+                        break;
+                    }
+                }
+            }
+
+            entities.infected = entities.infected.filter(c => !c.dead);
+            entities.viruses = entities.viruses.filter(v => !v.dead);
+            entities.antibodies = entities.antibodies.filter(a => !a.dead);
+        }
+
+        function managePopulations() {
+            let vTarget = parseInt(vSlider.value);
+            if (entities.viruses.length < vTarget && Math.random() < 0.05) {
+                entities.viruses.push(new Virus());
+            }
+
+            let iTarget = parseInt(iSlider.value);
+            if (entities.macrophages.length < iTarget && Math.random() < 0.1) {
+                entities.macrophages.push(new Macrophage());
+            } else if (entities.macrophages.length > iTarget + 10) {
+                entities.macrophages.pop(); 
+            }
+
+            if (entities.infected.length > 2 && entities.tcells.length < entities.infected.length * 2) {
+                if (Math.random() < 0.05) entities.tcells.push(new TCell());
+            } else if (entities.infected.length === 0 && entities.tcells.length > 0) {
+                if(Math.random() < 0.02) entities.tcells.pop(); 
+            }
+        }
+
+        function drawBackground() {
+            let grad = ctx.createRadialGradient(width/2, height/2, height*0.1, width/2, height/2, height);
+            grad.addColorStop(0, '#2e0f1b');
+            grad.addColorStop(1, '#0f0509');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(255, 0, 50, 0.03)';
+            ctx.lineWidth = 20;
+            ctx.beginPath();
+            ctx.moveTo(width*0.2, -50); ctx.quadraticCurveTo(width*0.4, height*0.5, width*0.1, height+50);
+            ctx.moveTo(width*0.8, -50); ctx.quadraticCurveTo(width*0.6, height*0.5, width*0.9, height+50);
+            ctx.stroke();
+        }
+
+        function updateUI() {
+            if(isUIHidden) return;
+
+            let hCount = entities.healthy.length;
+            let infCount = entities.infected.length;
+            let vCount = entities.viruses.length;
+            let mCount = entities.macrophages.length;
+            let tCount = entities.tcells.length;
+
+            document.getElementById('healthy-count').innerText = hCount;
+            document.getElementById('virus-total-count').innerText = vCount + infCount;
+            document.getElementById('immune-total-count').innerText = mCount + tCount;
+            
+            vValText.innerText = vSlider.value;
+            iValText.innerText = iSlider.value;
+
+            const statusCard = document.getElementById('status-card');
+            const statusNote = document.getElementById('status-note');
+
+            if (hCount === 0) {
+                statusNote.innerHTML = "🔴 <b>فشل النظام:</b> تم تدمير جميع الخلايا المضيفة. استجابة مناعية غير كافية.";
+                statusCard.style.borderColor = "#ef4444";
+            } else if (infCount > 10 || vCount > 30) {
+                statusNote.innerHTML = "🟠 <b>حالة حرجة (عاصفة وشيكة):</b> انتشار سريع للعدوى. الخلايا التائية القاتلة تتدخل الآن لتدمير الخلايا المصابة.";
+                statusCard.style.borderColor = "#f97316";
+            } else if (vCount > 0 || infCount > 0) {
+                statusNote.innerHTML = "🟡 <b>معركة نشطة:</b> الخلايا البلعمية تهاجم الفيروسات. حقن الأجسام المضادة قد يساعد في تجميدها.";
+                statusCard.style.borderColor = "#f59e0b";
+            } else {
+                statusNote.innerHTML = "🟢 <b>نظام محمي:</b> الأنسجة سليمة ولا يوجد أي تهديد فيروسي حالي.";
+                statusCard.style.borderColor = "#22c55e";
+            }
+        }
+
+        function loop() {
+            drawBackground();
+
+            ['healthy', 'infected', 'antibodies', 'viruses', 'macrophages', 'tcells'].forEach(group => {
+                entities[group].forEach(e => {
+                    if(e.update) e.update();
+                    if(e.draw) e.draw();
+                });
+            });
+
+            handleCollisions();
+            managePopulations();
+            updateUI();
+
+            animationFrame = requestAnimationFrame(loop);
+        }
+
+        // --- Event Listeners ---
+
+        btnReset.onclick = init;
+        
+        btnBoost.onclick = () => {
+            for(let i=0; i<40; i++) entities.antibodies.push(new Antibody());
+        };
+
+        // إخفاء/إظهار الواجهة
+        toggleBtn.onclick = () => {
+            isUIHidden = !isUIHidden;
+            if(isUIHidden) {
+                topUI.classList.add('hidden-ui-top');
+                extraControls.classList.add('hidden-ui-top');
+                bottomUI.classList.add('hidden-ui');
+                toggleBtn.innerText = '👁️‍🗨️';
+                toggleBtn.title = "إظهار لوحة التحكم";
+                toggleBtn.style.opacity = '0.5';
+            } else {
+                topUI.classList.remove('hidden-ui-top');
+                extraControls.classList.remove('hidden-ui-top');
+                bottomUI.classList.remove('hidden-ui');
+                toggleBtn.innerText = '👁️';
+                toggleBtn.title = "إخفاء لوحة التحكم";
+                toggleBtn.style.opacity = '1';
+                updateUI(); 
+            }
+        };
+
+        // النافذة المنبثقة (Modal)
+        infoBtn.onclick = () => {
+            infoModal.classList.remove('hidden');
+            setTimeout(() => infoModal.style.opacity = '1', 10);
+        };
+        closeModalBtn.onclick = () => {
+            infoModal.style.opacity = '0';
+            setTimeout(() => infoModal.classList.add('hidden'), 300);
+        };
+
+        // ملء الشاشة
+        fullscreenBtn.onclick = () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        };
+
+        // المشاركة
+        function showCopyToast() {
+            const toast = document.getElementById('toast');
+            toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 2500);
+        }
+
+        shareBtn.onclick = () => {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'محاكي الاستجابة المناعية',
+                    text: 'اكتشف كيف يدافع جسمك عن نفسه في هذا المحاكي التفاعلي!',
+                    url: window.location.href,
+                }).catch(console.error);
+            } else {
+                const dummy = document.createElement('textarea');
+                document.body.appendChild(dummy);
+                dummy.value = window.location.href;
+                dummy.select();
+                document.execCommand('copy');
+                document.body.removeChild(dummy);
+                showCopyToast();
+            }
+        };
+
+        window.onresize = resize;
+        
+        // Start
+        init();
+        loop();
+
+    </script>
+</body>
+</html>
